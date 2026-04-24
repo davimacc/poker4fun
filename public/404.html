@@ -1,0 +1,11 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <script>
+      const path = window.location.pathname.replace('/poker4fun', '') || '/'
+      sessionStorage.setItem('redirect', path)
+      window.location.replace('/poker4fun/')
+    </script>
+  </head>
+</html>
