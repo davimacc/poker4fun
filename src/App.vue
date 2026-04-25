@@ -1,11 +1,13 @@
 <script setup>
 import { RouterLink, RouterView } from 'vue-router'
+import IconTrophy from './icons/IconTrophy.vue'
+import IconCards from './icons/IconCards.vue'
 </script>
 
 <template>
   <nav class="app-nav">
-    <RouterLink to="/">Classifica</RouterLink>
-    <RouterLink to="/tornei">Tornei</RouterLink>
+    <RouterLink to="/"><IconTrophy />Classifica</RouterLink>
+    <RouterLink to="/tornei"><IconCards />Tornei</RouterLink>
   </nav>
   <main class="app-main">
     <RouterView />
@@ -30,6 +32,7 @@ import { RouterLink, RouterView } from 'vue-router'
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 7px;
   color: var(--color-nav-link);
   text-decoration: none;
   font-size: var(--font-size-base);
