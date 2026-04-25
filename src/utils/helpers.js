@@ -35,7 +35,7 @@ export function toInt(value) {
 export function formatDate(dateStr) {
   return new Date(dateStr).toLocaleDateString('it-IT', {
     day: '2-digit',
-    month: 'long',
+    month: 'short',
     year: 'numeric',
   })
 }
