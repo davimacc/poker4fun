@@ -1,17 +1,27 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { fetchData, risultati } from '../store.js'
+import { fetchData, risultati, tornei, selectedYear, availableYears } from '../store.js'
 import { getInitials, getAvatarColor, toInt } from '../utils/helpers.js'
 
 const router = useRouter()
 const loading = ref(true)
 const error = ref(null)
 
+const filteredRisultati = computed(() => {
+  if (!risultati.value || !tornei.value || !selectedYear.value) return []
+  const torneiDellAnno = new Set(
+    tornei.value
+      .filter(t => t.data?.startsWith(selectedYear.value))
+      .map(t => t.id)
+  )
+  return risultati.value.filter(r => torneiDellAnno.has(r.torneo))
+})
+
 const players = computed(() => {
-  if (!risultati.value) return []
+  if (!filteredRisultati.value.length) return []
   const map = {}
-  for (const r of risultati.value) {
+  for (const r of filteredRisultati.value) {
     if (!map[r.giocatore]) {
       map[r.giocatore] = { name: r.giocatore, points: 0 }
     }
@@ -34,6 +44,16 @@ onMounted(async () => {
 <template>
   <div class="page">
 
+    <!-- Filtro anno -->
+    <div v-if="!loading && !error" class="year-filter">
+      <div class="select-wrapper">
+        <select v-model="selectedYear" class="year-select">
+          <option v-for="year in availableYears" :key="year" :value="year">{{ year }}</option>
+        </select>
+        <span class="select-icon">›</span>
+      </div>
+    </div>
+
     <!-- Skeleton -->
     <div v-if="loading" class="skeleton">
       <div v-for="i in 6" :key="i" class="skeleton-row">
@@ -53,33 +73,41 @@ onMounted(async () => {
           <col class="col-chevron">
         </colgroup>
         <thead>
-          <tr>
-            <th class="rank-cell">#</th>
-            <th>Giocatore</th>
-            <th>Punti</th>
-            <th></th>
-          </tr>
+        <tr>
+          <th class="rank-cell">#</th>
+          <th>Giocatore</th>
+          <th>Punti</th>
+          <th></th>
+        </tr>
         </thead>
         <tbody>
-          <tr v-for="(player, index) in players" :key="player.name" class="clickable"
-            @click="router.push(`/giocatori/${player.name}`)">
-            <td class="rank-cell">
+        <tr
+          v-for="(player, index) in players"
+          :key="player.name"
+          class="clickable"
+          @click="router.push(`/giocatori/${player.name}`)"
+        >
+          <td class="rank-cell">
               <span v-if="index < 3" class="rank-badge" :class="`rank-badge--${index + 1}`">
                 {{ index + 1 }}
               </span>
-              <span v-else class="rank-num">{{ index + 1 }}</span>
-            </td>
-            <td>
-              <div class="player-cell">
-                <div class="avatar" :style="{ background: getAvatarColor(index).bg, color: getAvatarColor(index).fg }">
-                  {{ getInitials(player.name) }}
-                </div>
-                <span class="player-name">{{ player.name }}</span>
+            <span v-else class="rank-num">{{ index + 1 }}</span>
+          </td>
+          <td>
+            <div class="player-cell">
+              <div class="avatar" :style="{ background: getAvatarColor(index).bg, color: getAvatarColor(index).fg }">
+                {{ getInitials(player.name) }}
               </div>
-            </td>
-            <td class="pts">{{ player.points }}</td>
-            <td class="rank-cell"><span class="chevron">›</span></td>
-          </tr>
+              <span class="player-name">{{ player.name }}</span>
+            </div>
+          </td>
+          <td class="pts">{{ player.points }}</td>
+          <td class="rank-cell"><span class="chevron">›</span></td>
+        </tr>
+
+        <tr v-if="players.length === 0">
+          <td colspan="4" class="empty-state">Nessun risultato per {{ selectedYear }}.</td>
+        </tr>
         </tbody>
       </table>
     </div>
@@ -88,15 +116,59 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.col-rank {
-  width: 48px;
+.col-rank    { width: 48px; }
+.col-points  { width: 86px; }
+.col-chevron { width: 32px; }
+
+/* ─── Year filter ───────────────────────────────────────────────────────────── */
+
+.year-filter {
+  display: flex;
+  align-items: center;
 }
 
-.col-points {
-  width: 86px;
+.select-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
 }
 
-.col-chevron {
-  width: 32px;
+.year-select {
+  appearance: none;
+  -webkit-appearance: none;
+  background: white;
+  border: 0.5px solid var(--color-border);
+  border-radius: var(--radius-badge);
+  padding: 5px 30px 5px 12px;
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--color-text);
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.year-select:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.select-icon {
+  position: absolute;
+  right: 9px;
+  font-size: 15px;
+  color: var(--color-muted);
+  pointer-events: none;
+  transform: rotate(90deg);
+  line-height: 1;
+}
+
+/* ─── Empty state ───────────────────────────────────────────────────────────── */
+
+.empty-state {
+  text-align: center;
+  color: var(--color-muted);
+  font-size: var(--font-size-sm);
+  padding: 2rem 1rem;
 }
 </style>

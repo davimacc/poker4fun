@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { fetchData, tornei, risultati } from '../store.js'
+import { fetchData, tornei, risultati, selectedYear } from '../store.js'
 import { getInitials, toInt, formatDate, buildTournamentResults } from '../utils/helpers.js'
 
 const route = useRoute()
@@ -14,26 +14,42 @@ function toggle(id) {
   openId.value = openId.value === id ? null : id
 }
 
-/** Restituisce la classe del pos-badge in base alla posizione. */
 function posBadgeClass(pos) {
   return pos <= 3 ? `pos-badge--${pos}` : 'pos-badge--other'
 }
 
-/** Restituisce l'etichetta testuale della posizione. */
 function posLabel(pos) {
   return `${pos}° posto`
-}
+  }
+
+const torneiDellAnno = computed(() => {
+  if (!tornei.value || !selectedYear.value) return null
+  return new Set(
+    tornei.value
+      .filter(t => t.data?.startsWith(selectedYear.value))
+      .map(t => t.id)
+  )
+})
 
 const player = computed(() => {
   if (!tornei.value || !risultati.value) return null
 
   const name = route.params.id
-  const playerResults = risultati.value.filter(r => r.giocatore === name)
+  const allPlayerResults = risultati.value.filter(r => r.giocatore === name)
+
+  const playerResults = torneiDellAnno.value
+    ? allPlayerResults.filter(r => torneiDellAnno.value.has(r.torneo))
+    : allPlayerResults
+
   const totalPoints = playerResults.reduce((sum, r) => sum + toInt(r.punti), 0)
   const wins = playerResults.filter(r => r.posizione === '1').length
   const top3 = playerResults.filter(r => toInt(r.posizione) <= 3).length
 
-  const pointsByPlayer = risultati.value.reduce((acc, r) => {
+  const filteredRisultati = torneiDellAnno.value
+    ? risultati.value.filter(r => torneiDellAnno.value.has(r.torneo))
+    : risultati.value
+
+  const pointsByPlayer = filteredRisultati.reduce((acc, r) => {
     acc[r.giocatore] = (acc[r.giocatore] ?? 0) + toInt(r.punti)
     return acc
   }, {})
@@ -57,15 +73,7 @@ const player = computed(() => {
     })
     .sort((a, b) => b.date.localeCompare(a.date))
 
-  return {
-    name,
-    totalPoints,
-    wins,
-    top3,
-    tourneysPlayed: playerResults.length,
-    rank,
-    history,
-  }
+  return { name, totalPoints, wins, top3, tourneysPlayed: playerResults.length, rank, history }
 })
 
 onMounted(async () => {
@@ -76,28 +84,28 @@ onMounted(async () => {
   } finally {
     loading.value = false
   }
-})
+    })
 </script>
 
 <template>
   <div class="page">
 
-    <!-- Skeleton -->
+      <!-- Skeleton -->
     <div v-if="loading" class="skeleton">
-      <div class="skeleton-row skeleton-row--header">
-        <div class="skeleton-circle skeleton-circle--lg" />
+          <div class="skeleton-row skeleton-row--header">
+            <div class="skeleton-circle skeleton-circle--lg" />
         <div class="skeleton-header-lines">
           <div class="skeleton-line" style="width: 45%;" />
           <div class="skeleton-line skeleton-line--sm" style="width: 28%;" />
-        </div>
-      </div>
+            </div>
+          </div>
       <div class="skeleton-stats">
         <div v-for="i in 4" :key="i" class="skeleton-line skeleton-stat-block" />
-      </div>
-      <div v-for="i in 4" :key="i" class="skeleton-row">
-        <div class="skeleton-line" :style="{ width: `${40 + (i % 3) * 18}%` }" />
-      </div>
-    </div>
+          </div>
+          <div v-for="i in 4" :key="i" class="skeleton-row">
+            <div class="skeleton-line" :style="{ width: `${40 + (i % 3) * 18}%` }" />
+          </div>
+        </div>
 
     <div v-else-if="error" class="error">Impossibile caricare i dati del giocatore.</div>
 
@@ -111,64 +119,73 @@ onMounted(async () => {
           <div class="player-header-name">{{ player.name }}</div>
         </div>
         <div class="ranking-badge" :class="`ranking-badge--${player.rank <= 3 ? player.rank : 'other'}`">
-          <div class="ranking-badge-label">Ranking</div>
+          <div class="ranking-badge-label">{{ selectedYear }}</div>
           <div class="ranking-badge-num">#{{ player.rank }}</div>
-        </div>
-      </div>
-
-      <!-- Statistiche -->
-      <div class="stats-grid">
-        <div class="stat">
-          <div class="stat-label">Punti</div>
-          <div class="stat-value">{{ player.totalPoints }}</div>
-        </div>
-        <div class="stat">
-          <div class="stat-label">Tornei giocati</div>
-          <div class="stat-value">{{ player.tourneysPlayed }}</div>
-        </div>
-        <div class="stat">
-          <div class="stat-label">Vittorie</div>
-          <div class="stat-value">{{ player.wins }}</div>
-        </div>
-        <div class="stat">
-          <div class="stat-label">Podi</div>
-          <div class="stat-value">{{ player.top3 }}</div>
-        </div>
-      </div>
-
-      <!-- Storico tornei -->
-      <div class="history-title">Storico tornei</div>
-
-      <div v-for="t in player.history" :key="t.id" class="history-item">
-        <div class="history-row clickable" @click="toggle(t.id)">
-          <div>
-            <div class="history-name" :class="{ 'history-name--open': openId === t.id }">{{ t.name }}</div>
-            <div class="history-meta">{{ formatDate(t.date) }} · {{ t.playerCount }} giocatori</div>
-          </div>
-          <div class="history-row-right">
-            <span class="pos-badge" :class="posBadgeClass(t.pos)">{{ posLabel(t.pos) }}</span>
-            <span class="pts">{{ t.points }} pt</span>
-            <span class="chevron" :class="{ 'chevron--open': openId === t.id }">›</span>
-          </div>
-        </div>
-
-        <Transition name="detail">
-          <div v-if="openId === t.id" class="tournament-detail">
-            <div v-for="r in t.results" :key="r.name" class="detail-row"
-              :class="r.isCurrentPlayer ? 'detail-row--hero' : 'detail-row--dimmed'">
-              <div class="detail-rank">{{ r.pos }}</div>
-              <div class="avatar avatar--sm" :style="{ background: r.color.bg, color: r.color.fg }">
-                {{ getInitials(r.name) }}
-              </div>
-              <div class="detail-name">{{ r.name }}</div>
-              <div class="detail-pts">{{ r.points }} pt</div>
             </div>
           </div>
-        </Transition>
-      </div>
 
-    </div>
-  </div>
+      <!-- Titolo sezione stagione -->
+      <div class="section-title">Stagione {{ selectedYear }}</div>
+
+      <!-- Statistiche -->
+              <div class="stats-grid">
+                <div class="stat">
+                  <div class="stat-label">Punti</div>
+          <div class="stat-value">{{ player.totalPoints }}</div>
+                </div>
+                <div class="stat">
+          <div class="stat-label">Tornei giocati</div>
+          <div class="stat-value">{{ player.tourneysPlayed }}</div>
+                </div>
+                <div class="stat">
+                  <div class="stat-label">Vittorie</div>
+          <div class="stat-value">{{ player.wins }}</div>
+                </div>
+                <div class="stat">
+                  <div class="stat-label">Podi</div>
+          <div class="stat-value">{{ player.top3 }}</div>
+              </div>
+            </div>
+
+      <!-- Storico tornei -->
+      <div class="history-title">Tornei</div>
+
+      <template v-if="player.history.length > 0">
+        <div v-for="t in player.history" :key="t.id" class="history-item">
+                <div class="history-row clickable" @click="toggle(t.id)">
+            <div>
+              <div class="history-name" :class="{ 'history-name--open': openId === t.id }">{{ t.name }}</div>
+                    <div class="history-meta">{{ formatDate(t.date) }} · {{ t.playerCount }} giocatori</div>
+                  </div>
+            <div class="history-row-right">
+              <span class="pos-badge" :class="posBadgeClass(t.pos)">{{ posLabel(t.pos) }}</span>
+                    <span class="pts">{{ t.points }} pt</span>
+                    <span class="chevron" :class="{ 'chevron--open': openId === t.id }">›</span>
+                  </div>
+                </div>
+
+                <Transition name="detail">
+                  <div v-if="openId === t.id" class="tournament-detail">
+              <div v-for="r in t.results" :key="r.name" class="detail-row"
+                :class="r.isCurrentPlayer ? 'detail-row--hero' : 'detail-row--dimmed'">
+                      <div class="detail-rank">{{ r.pos }}</div>
+                      <div class="avatar avatar--sm" :style="{ background: r.color.bg, color: r.color.fg }">
+                        {{ getInitials(r.name) }}
+                      </div>
+                      <div class="detail-name">{{ r.name }}</div>
+                      <div class="detail-pts">{{ r.points }} pt</div>
+                    </div>
+                  </div>
+                </Transition>
+              </div>
+            </template>
+
+      <div v-else class="empty-history">
+        Nessun torneo per la stagione {{ selectedYear }}.
+          </div>
+
+        </div>
+      </div>
 </template>
 
 <style scoped>
@@ -246,6 +263,21 @@ onMounted(async () => {
   text-overflow: ellipsis;
 }
 
+/* ─── Section titles ────────────────────────────────────────────────────────── */
+
+.section-title,
+.history-title {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--color-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+
+.section-title {
+  padding: 0.75rem 1rem 0;
+}
+
 /* ─── Ranking badge ─────────────────────────────────────────────────────────── */
 
 .ranking-badge {
@@ -253,9 +285,10 @@ onMounted(async () => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 10px 6px;
-  border-radius: 10px;
+  width: 60px;
+  height: 50px;
   flex-shrink: 0;
+  border-radius: 10px;
 }
 
 .ranking-badge-label {
@@ -271,41 +304,22 @@ onMounted(async () => {
   line-height: 1.15;
 }
 
-.ranking-badge--1 {
-  background: var(--podium-1-bg);
-}
-
-.ranking-badge--2 {
-  background: var(--podium-2-bg);
-}
-
-.ranking-badge--3 {
-  background: var(--podium-3-bg);
-}
-
-.ranking-badge--other {
-  background: var(--podium-other-bg);
-}
+.ranking-badge--1 { background: var(--podium-1-bg); }
+.ranking-badge--2 { background: var(--podium-2-bg); }
+.ranking-badge--3 { background: var(--podium-3-bg); }
+.ranking-badge--other { background: var(--podium-other-bg); }
 
 .ranking-badge--1 .ranking-badge-label,
-.ranking-badge--1 .ranking-badge-num {
-  color: var(--podium-1-fg);
-}
+.ranking-badge--1 .ranking-badge-num { color: var(--podium-1-fg); }
 
 .ranking-badge--2 .ranking-badge-label,
-.ranking-badge--2 .ranking-badge-num {
-  color: var(--podium-2-fg);
-}
+.ranking-badge--2 .ranking-badge-num { color: var(--podium-2-fg); }
 
 .ranking-badge--3 .ranking-badge-label,
-.ranking-badge--3 .ranking-badge-num {
-  color: var(--podium-3-fg);
-}
+.ranking-badge--3 .ranking-badge-num { color: var(--podium-3-fg); }
 
 .ranking-badge--other .ranking-badge-label,
-.ranking-badge--other .ranking-badge-num {
-  color: var(--podium-other-fg);
-}
+.ranking-badge--other .ranking-badge-num { color: var(--podium-other-fg); }
 
 /* ─── Statistiche ───────────────────────────────────────────────────────────── */
 
@@ -333,14 +347,9 @@ onMounted(async () => {
   font-weight: 500;
 }
 
-/* ─── Storico tornei ────────────────────────────────────────────────────────── */
+/* ─── Tornei ────────────────────────────────────────────────────────────────── */
 
 .history-title {
-  font-size: var(--font-size-xs);
-  font-weight: 500;
-  color: var(--color-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
   padding: 0.75rem 1rem 0.5rem;
   border-top: 0.5px solid var(--color-border);
 }
@@ -382,16 +391,23 @@ onMounted(async () => {
   flex-shrink: 0;
 }
 
+/* ─── Empty state ───────────────────────────────────────────────────────────── */
+
+.empty-history {
+  text-align: center;
+  color: var(--color-muted);
+  font-size: var(--font-size-sm);
+  padding: 2rem 1rem;
+}
+
 /* ─── Detail focus effect ───────────────────────────────────────────────────── */
 
-/* Il giocatore corrente rimane in piena visibilità con accento laterale */
 .detail-row--hero {
   border-left: 2.5px solid var(--color-accent);
   padding-left: calc(1rem - 2.5px);
   border-radius: 0 6px 6px 0;
 }
 
-/* Gli altri giocatori sono leggermente sfumati */
 .detail-row--dimmed {
   opacity: 0.35;
   filter: blur(0.3px);
