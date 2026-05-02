@@ -1,31 +1,43 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import { fetchData, tornei, risultati } from '../store.js'
-import { getInitials, formatDate, buildTournamentResults } from '../utils/helpers.js'
+import { computed, onMounted, ref } from 'vue'
+import { fetchData, risultati, tornei } from '../store.js'
+import { buildTournamentResults, formatDate, getInitials } from '../utils/helpers.js'
 
 const loading = ref(true)
 const error = ref(null)
-const openTorneoId = ref(null)
-const openYears = ref(new Set())
+const openTournamentId = ref(null)
 
-function toggleTorneo(id) {
-  openTorneoId.value = openTorneoId.value === id ? null : id
+// Array di anni aperti — più semplice e reattivo di un ref<Set>
+const openYears = ref([])
+
+function toggleTournament(id) {
+  openTournamentId.value = openTournamentId.value === id ? null : id
 }
 
 function toggleYear(year) {
-  const next = new Set(openYears.value)
-  if (next.has(year)) {
-    next.delete(year)
-    const t = flatTournaments.value.find((t) => t.id === openTorneoId.value)
-    if (t?.year === year) openTorneoId.value = null
+  const index = openYears.value.indexOf(year)
+  if (index !== -1) {
+    // Chiude l'anno: se il torneo aperto appartiene a questo anno, lo chiude
+    const tournament = flatTournaments.value.find((t) => t.id === openTournamentId.value)
+    if (tournament?.year === year) openTournamentId.value = null
+    openYears.value = openYears.value.filter((y) => y !== year)
   } else {
-    next.add(year)
+    openYears.value = [...openYears.value, year]
   }
-  openYears.value = next
 }
 
+function isYearOpen(year) {
+  return openYears.value.includes(year)
+}
+
+function tournamentCountLabel(n) {
+  return n === 1 ? '1 torneo' : `${n} tornei`
+}
+
+// Lista piatta dei tornei con risultati già calcolati
 const flatTournaments = computed(() => {
   if (!tornei.value || !risultati.value) return []
+
   return tornei.value
     .map((t) => {
       const results = buildTournamentResults(risultati.value, t.id)
@@ -41,6 +53,7 @@ const flatTournaments = computed(() => {
     .sort((a, b) => b.date.localeCompare(a.date))
 })
 
+// Tornei raggruppati per anno, dal più recente
 const groupedByYear = computed(() => {
   const map = {}
   for (const t of flatTournaments.value) {
@@ -52,16 +65,13 @@ const groupedByYear = computed(() => {
     .map(([year, tournaments]) => ({ year, tournaments }))
 })
 
-function torneiLabel(n) {
-  return n === 1 ? '1 torneo' : `${n} tornei`
-}
-
 onMounted(async () => {
   try {
     await fetchData()
-    openYears.value = new Set(groupedByYear.value.map((g) => g.year))
-  } catch {
-    error.value = true
+    // Apre di default tutti gli anni disponibili
+    openYears.value = groupedByYear.value.map((g) => g.year)
+  } catch (err) {
+    error.value = err?.message ?? 'Errore sconosciuto'
   } finally {
     loading.value = false
   }
@@ -77,28 +87,51 @@ onMounted(async () => {
       </div>
     </div>
 
+    <!-- Errore -->
     <div v-else-if="error" class="error">Impossibile caricare i tornei.</div>
 
+    <!-- Lista tornei per anno -->
     <template v-else>
       <div v-for="group in groupedByYear" :key="group.year" class="year-group">
-        <button class="year-header" @click="toggleYear(group.year)">
+        <button
+          class="year-header"
+          :aria-expanded="isYearOpen(group.year)"
+          :aria-controls="`year-section-${group.year}`"
+          @click="toggleYear(group.year)"
+        >
           <span class="year-label">{{ group.year }}</span>
-          <span class="year-meta">{{ torneiLabel(group.tournaments.length) }}</span>
-          <span class="chevron" :class="{ 'chevron--open': openYears.has(group.year) }">›</span>
+          <span class="year-meta">{{ tournamentCountLabel(group.tournaments.length) }}</span>
+          <span
+            class="chevron"
+            :class="{ 'chevron--open': isYearOpen(group.year) }"
+            aria-hidden="true"
+          />
         </button>
 
         <Transition name="year-section">
-          <div v-if="openYears.has(group.year)" class="card year-card">
+          <div
+            v-if="isYearOpen(group.year)"
+            :id="`year-section-${group.year}`"
+            class="card year-card"
+          >
             <div
               v-for="tournament in group.tournaments"
               :key="tournament.id"
               class="tournament-item"
             >
-              <div class="tournament-row clickable" @click="toggleTorneo(tournament.id)">
-                <div>
+              <div
+                class="tournament-row clickable"
+                role="button"
+                tabindex="0"
+                :aria-expanded="openTournamentId === tournament.id"
+                :aria-label="`Espandi ${tournament.name}`"
+                @click="toggleTournament(tournament.id)"
+                @keydown.enter="toggleTournament(tournament.id)"
+              >
+                <div class="tournament-info">
                   <div
                     class="tournament-name"
-                    :class="{ 'tournament-name--open': openTorneoId === tournament.id }"
+                    :class="{ 'tournament-name--open': openTournamentId === tournament.id }"
                   >
                     {{ tournament.name }}
                   </div>
@@ -106,13 +139,15 @@ onMounted(async () => {
                     {{ formatDate(tournament.date) }} · {{ tournament.playerCount }} giocatori
                   </div>
                 </div>
-                <span class="chevron" :class="{ 'chevron--open': openTorneoId === tournament.id }"
-                  >›</span
-                >
+                <span
+                  class="chevron"
+                  :class="{ 'chevron--open': openTournamentId === tournament.id }"
+                  aria-hidden="true"
+                />
               </div>
 
               <Transition name="detail">
-                <div v-if="openTorneoId === tournament.id" class="tournament-detail">
+                <div v-if="openTournamentId === tournament.id" class="tournament-detail">
                   <div v-for="r in tournament.results" :key="r.name" class="detail-row">
                     <div class="detail-rank">{{ r.pos }}</div>
                     <div
@@ -144,7 +179,9 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   gap: 8px;
+  /* Touch target: padding verticale per raggiungere i 44px */
   padding: 0.75rem 0.25rem;
+  min-height: var(--touch-target);
   background: none;
   border: none;
   cursor: pointer;
@@ -167,10 +204,7 @@ onMounted(async () => {
   flex: 1;
 }
 
-.year-header .chevron {
-  font-size: 16px;
-}
-
+/* Transizione sezione anno */
 .year-section-enter-active,
 .year-section-leave-active {
   transition:
@@ -197,11 +231,21 @@ onMounted(async () => {
   justify-content: space-between;
   align-items: center;
   padding: 0.875rem 1rem;
+  /* Touch target: min-height garantisce area toccabile sufficiente */
+  min-height: var(--touch-target);
+}
+
+.tournament-info {
+  flex: 1;
+  min-width: 0;
 }
 
 .tournament-name {
   font-size: var(--font-size-md);
   font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .tournament-name--open {

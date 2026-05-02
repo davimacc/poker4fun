@@ -6,7 +6,6 @@ const risultati = ref(null)
 
 /**
  * Anno selezionato globalmente. null = tutti gli anni.
- * Condiviso tra ClassificaView e GiocatoreDetailView.
  */
 export const selectedYear = ref(null)
 

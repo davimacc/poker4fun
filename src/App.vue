@@ -53,7 +53,6 @@ import IconCards from './icons/IconCards.vue'
   right: 0;
   bottom: 0;
   overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
 }
 
