@@ -118,23 +118,23 @@ onMounted(async () => {
         <div class="player-header-info">
           <div class="player-header-name">{{ player.name }}</div>
         </div>
-        <div class="ranking-badge" :class="`ranking-badge--${player.rank <= 3 ? player.rank : 'other'}`">
-          <div class="ranking-badge-label">{{ selectedYear }}</div>
-          <div class="ranking-badge-num">#{{ player.rank }}</div>
-            </div>
-          </div>
+      </div>
 
       <!-- Titolo sezione stagione -->
       <div class="section-title">Stagione {{ selectedYear }}</div>
 
       <!-- Statistiche -->
-              <div class="stats-grid">
+      <div class="stats-grid">
+        <div class="stat stat--full">
+          <div class="stat-label">Classifica</div>
+          <div class="stat-value">{{ player.rank }}°</div>
+        </div>
                 <div class="stat">
                   <div class="stat-label">Punti</div>
           <div class="stat-value">{{ player.totalPoints }}</div>
                 </div>
                 <div class="stat">
-          <div class="stat-label">Tornei giocati</div>
+          <div class="stat-label">Tornei</div>
           <div class="stat-value">{{ player.tourneysPlayed }}</div>
                 </div>
                 <div class="stat">
@@ -278,49 +278,6 @@ onMounted(async () => {
   padding: 0.75rem 1rem 0;
 }
 
-/* ─── Ranking badge ─────────────────────────────────────────────────────────── */
-
-.ranking-badge {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  width: 60px;
-  height: 50px;
-  flex-shrink: 0;
-  border-radius: 10px;
-}
-
-.ranking-badge-label {
-  font-size: var(--font-size-xs);
-  font-weight: 500;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.ranking-badge-num {
-  font-size: var(--font-size-xl);
-  font-weight: 500;
-  line-height: 1.15;
-}
-
-.ranking-badge--1 { background: var(--podium-1-bg); }
-.ranking-badge--2 { background: var(--podium-2-bg); }
-.ranking-badge--3 { background: var(--podium-3-bg); }
-.ranking-badge--other { background: var(--podium-other-bg); }
-
-.ranking-badge--1 .ranking-badge-label,
-.ranking-badge--1 .ranking-badge-num { color: var(--podium-1-fg); }
-
-.ranking-badge--2 .ranking-badge-label,
-.ranking-badge--2 .ranking-badge-num { color: var(--podium-2-fg); }
-
-.ranking-badge--3 .ranking-badge-label,
-.ranking-badge--3 .ranking-badge-num { color: var(--podium-3-fg); }
-
-.ranking-badge--other .ranking-badge-label,
-.ranking-badge--other .ranking-badge-num { color: var(--podium-other-fg); }
-
 /* ─── Statistiche ───────────────────────────────────────────────────────────── */
 
 .stats-grid {
@@ -334,6 +291,10 @@ onMounted(async () => {
   background: var(--color-bg-subtle);
   border-radius: 10px;
   padding: 1rem;
+}
+
+.stat--full {
+  grid-column: 1 / -1;
 }
 
 .stat-label {
