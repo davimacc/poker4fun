@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="it">
+
+<head>
+  <script>
+    const redirect = sessionStorage.getItem('redirect')
+    if (redirect) {
+      sessionStorage.removeItem('redirect')
+      window.history.replaceState(null, '', '/poker4fun' + redirect)
+    }
+  </script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#1a1a2e">
+  <link rel="icon" href="/poker4fun/favicon.ico">
+  <link rel="apple-touch-icon" href="/poker4fun/icon-180.png">
+  <link rel="manifest" href="/poker4fun/manifest.json">
+  <title>Poker4Fun</title>
+  <script type="module" crossorigin src="/poker4fun/assets/index-CENfmuM_.js"></script>
+  <link rel="modulepreload" crossorigin href="/poker4fun/assets/helpers-DUSy_uiO.js">
+  <link rel="modulepreload" crossorigin href="/poker4fun/assets/vue-router-Ct5YcABB.js">
+  <link rel="stylesheet" crossorigin href="/poker4fun/assets/index-CdnwT1Zb.css">
+</head>
+
+<body>
+  <div id="app"></div>
+</body>
+
+</html>
